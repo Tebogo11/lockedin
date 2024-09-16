@@ -1,37 +1,51 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Stack } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { useColorScheme } from "@/hooks/useColorScheme";
+import {
+  ThemeProvider,
+  DarkTheme,
+  DefaultTheme,
+} from "@react-navigation/native";
+import { getAuth, onAuthStateChanged, User } from "firebase/auth";
+import { auth, db } from "../firebaseConfig";
+import useUser, { UserData } from "@/state/user";
+import { doc, getDoc } from "firebase/firestore";
 
-import { TabBarIcon } from '@/components/navigation/TabBarIcon';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+export default function StackLayout() {
+  const [userIsValid, setUserIsValid] = useState(false);
+  const { setAuthUser, setUserData } = useUser();
+  const [isLoadingAuth, setIsLoadingAuth] = useState(false);
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  useEffect(() => {
+    setIsLoadingAuth(true);
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setUserIsValid(true);
+        setAuthUser(user);
+        setIsLoadingAuth(false);
+        const docRef = doc(db, "users", user.uid);
+        const docSnap = await getDoc(docRef);
+        const userData = docSnap.data() as UserData;
+        if (userData) {
+          setUserData(userData);
+        }
+      } else {
+        setUserIsValid(false);
+      }
+    });
+  }, []);
+
+  if (isLoadingAuth) {
+    return null;
+  }
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'home' : 'home-outline'} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'code-slash' : 'code-slash-outline'} color={color} />
-          ),
-        }}
-      />
-    </Tabs>
+    <Stack screenOptions={{ headerShown: false }}>
+      {userIsValid ? (
+        <Stack.Screen name="(home)" options={{ headerShown: false }} />
+      ) : (
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      )}
+    </Stack>
   );
 }
